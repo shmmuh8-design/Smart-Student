@@ -75,12 +75,13 @@ Deno.serve(async (req) => {
   const use = await bump(device, limit);
   if (!use.ok) return json({ error: 'limit', left: 0 }, 429);
 
-  const model = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash-lite';
+  // ننظف الاسم من أي رموز مخفية (تصير أحيانًا لما ننسخ الكود من صفحة عربية)
+  const model = ((Deno.env.get('GEMINI_MODEL') || '').replace(/[^a-z0-9.\-]/gi, '') || 'gemini-2.5-flash-lite');
   const parts: any[] = [{ text: prompt(subject, grade, topic, !!image) }];
   if (image) parts.push({ inline_data: { mime_type: 'image/jpeg', data: image } });
-  const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  const g = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY.trim() },
     body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: 4096 } }),
   });
   if (!g.ok) { console.error('gemini', g.status, (await g.text()).slice(0, 300)); return json({ error: 'ai' }, 502); }
