@@ -1,0 +1,10 @@
+{
+  "appId": "com.salemaljabri.smartstudent",
+  "appName": "الطالب الذكي",
+  "webDir": "www",
+  "backgroundColor": "#f4f3ff",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#f4f3ff"
+  }
+}
