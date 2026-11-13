@@ -17,4 +17,4 @@
    اختياري: `SS_DAILY_LIMIT` و `GEMINI_MODEL`.
 
 ## البناء
-Codemagic → workflow «الطالب الذكي — آيفون» (bundle id: com.salemaljabri.smartstudent).
+Codemagic → workflow «الطالب الذكي — آيفون» (bundle id: com.salemaljabri.smartsudent).
