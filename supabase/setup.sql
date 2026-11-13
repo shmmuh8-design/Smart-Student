@@ -24,3 +24,10 @@ revoke all on function public.ss_bump(text, int) from public, anon, authenticate
 
 -- تنظيف: حذف العدادات الأقدم من أسبوع (اختياري، تقدر تشغله أي وقت)
 -- delete from public.ss_usage where day < (now() at time zone 'Asia/Muscat')::date - 7;
+
+-- ترجيع المحاولة إذا فشل الذكاء الاصطناعي (عشان ما تنحسب على الطالب)
+create or replace function public.ss_unbump(p_device text)
+returns void language sql security definer set search_path = public as $$
+  update ss_usage set n = greatest(0, n - 1) where device = p_device and day = (now() at time zone 'Asia/Muscat')::date;
+$$;
+revoke all on function public.ss_unbump(text) from public, anon, authenticated;

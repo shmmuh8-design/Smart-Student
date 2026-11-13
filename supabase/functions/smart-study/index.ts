@@ -2,7 +2,7 @@
 // تستقبل صورة درس أو موضوع مكتوب، وترجع: ملخص + بطاقات مراجعة + اختبار قصير.
 // الأسرار (تحطها أنت بنفسك في Supabase → Edge Functions → Secrets):
 //   GEMINI_API_KEY   مفتاحك من Google AI Studio (لا ترسله لأحد)
-//   GEMINI_MODEL     اختياري (الافتراضي gemini-2.5-flash-lite)
+//   GEMINI_MODEL     اختياري (الافتراضي gemini-3.5-flash-lite)
 //   SS_DAILY_LIMIT   اختياري: عدد الدروس المجانية في اليوم لكل جهاز (الافتراضي 3)
 // الصور ما تنحفظ أبدًا: تروح للتحليل بس.
 
@@ -36,6 +36,12 @@ ${hasImage ? 'المرفق صورة من كتاب أو دفتر الطالب.' :
   "tip": "نصيحة قصيرة للمذاكرة لهذا الدرس"
 }
 - البطاقات من 5 إلى 8، والاختبار من 5 إلى 8 أسئلة، وكل سؤال 4 خيارات، و"answer" رقم الخيار الصحيح من 0 إلى 3.`;
+}
+
+async function unbump(device: string) {
+  const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return;
+  try { await fetch(url + '/rest/v1/rpc/ss_unbump', { method: 'POST', headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_device: device }) }); } catch { /* ignore */ }
 }
 
 async function bump(device: string, limit: number) {
@@ -76,7 +82,7 @@ Deno.serve(async (req) => {
   if (!use.ok) return json({ error: 'limit', left: 0 }, 429);
 
   // ننظف الاسم من أي رموز مخفية (تصير أحيانًا لما ننسخ الكود من صفحة عربية)
-  const model = ((Deno.env.get('GEMINI_MODEL') || '').replace(/[^a-z0-9.\-]/gi, '') || 'gemini-2.5-flash-lite');
+  const model = ((Deno.env.get('GEMINI_MODEL') || '').replace(/[^a-z0-9.\-]/gi, '') || 'gemini-3.5-flash-lite');
   const parts: any[] = [{ text: prompt(subject, grade, topic, !!image) }];
   if (image) parts.push({ inline_data: { mime_type: 'image/jpeg', data: image } });
   const g = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
@@ -84,11 +90,11 @@ Deno.serve(async (req) => {
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY.trim() },
     body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: 4096 } }),
   });
-  if (!g.ok) { console.error('gemini', g.status, (await g.text()).slice(0, 300)); return json({ error: 'ai' }, 502); }
+  if (!g.ok) { console.error('gemini', g.status, (await g.text()).slice(0, 300)); await unbump(device); return json({ error: 'ai', left: use.left + 1 }, 502); }
   const out = await g.json();
   const txt = out?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
-  let data: any; try { data = JSON.parse(txt); } catch { return json({ error: 'ai_format' }, 502); }
-  if (data?.error === 'not_study') return json({ error: 'not_study', left: use.left }, 422);
+  let data: any; try { data = JSON.parse(txt); } catch { await unbump(device); return json({ error: 'ai_format', left: use.left + 1 }, 502); }
+  if (data?.error === 'not_study') { await unbump(device); return json({ error: 'not_study', left: use.left + 1 }, 422); }
 
   // تنظيف بسيط
   const S = (v: any, n = 400) => String(v ?? '').slice(0, n);
